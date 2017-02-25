@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Geometry of square roots</title>
+<style>
+body {
+    margin: 0;
+}
+canvas {
+    position: absolute;
+    left, right, top, bottom: 0;
+    width: 100%;
+    height: 100%;
+}
+</style>
+<script>
+'use strict';
+
+let TAU = 2 * Math.PI;
+var gridOffsetX, gridOffsetY, gridSpacing;
+var squareNumber = 5;
+var isDragging = false;
+var isTouch = false;
+
+function init()
+{
+    onResize();
+    window.addEventListener('resize', onResize);
+
+    let canvas = document.getElementById('circle-layer');
+    canvas.addEventListener('mousedown', withGridCoordinates(onMouseDown));
+    canvas.addEventListener('touchdown', withGridCoordinates(onMouseDown));
+    canvas.addEventListener('mousemove', withGridCoordinates(onMouseMove));
+    canvas.addEventListener('touchmove', withGridCoordinates(onMouseMove));
+    canvas.addEventListener('mouseup', endDragging);
+    canvas.addEventListener('mouseout', endDragging);
+    canvas.addEventListener('touchend', endDragging);
+    canvas.addEventListener('touchcancel', endDragging);
+}
+
+function onResize()
+{
+    // TODO: some mobile browsers send resize events on zoom that mess up coords
+
+    for (let canvas of document.getElementsByTagName('canvas')) {
+        // this also clears the canvases, apperently changing their size has this effect
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+
+    gridSpacing = 60;
+    gridOffsetX = Math.trunc(window.innerWidth * 0.1 + gridSpacing) + 0.5;
+    gridOffsetY = Math.trunc(window.innerHeight * 0.666) + 0.5;
+
+    drawGrid();
+    drawCircle();
+}
+
+function drawGrid() {
+    let canvas = document.getElementById('grid-layer');
+    let context = canvas.getContext('2d');
+    let minX = (0 - gridOffsetX) / gridSpacing,
+        maxX = (canvas.width - gridOffsetX) / gridSpacing,
+        minY = (gridOffsetY - canvas.height) / gridSpacing,
+        maxY = (gridOffsetY - 0) / gridSpacing;
+    context.beginPath();
+    for (let y = Math.trunc(minY); y <= Math.ceil(maxY); y++) {
+        context.moveTo(0, gridOffsetY - y * gridSpacing);
+        context.lineTo(canvas.width, gridOffsetY - y * gridSpacing);
+    }
+    for (let x = Math.trunc(minX); x <= Math.ceil(maxX); x++) {
+        context.moveTo(gridOffsetX + x * gridSpacing, 0);
+        context.lineTo(gridOffsetX + x * gridSpacing, canvas.height);
+    }
+    context.strokeStyle = '#cccccc';
+    context.stroke();
+    
+    context.beginPath();
+    context.moveTo(0, gridOffsetY);
+    context.lineTo(canvas.width, gridOffsetY);
+    context.moveTo(gridOffsetX, 0);
+    context.lineTo(gridOffsetX, canvas.height);
+    context.strokeStyle = 'black';
+    context.stroke();
+}
+
+function drawCircle(context)
+{
+    if (!context) {
+        let canvas = document.getElementById('circle-layer');
+        context = canvas.getContext('2d');
+    }
+
+    let center = (squareNumber - 1) * 0.5,
+        radius = (squareNumber + 1) * 0.5;
+
+    context.beginPath();
+    context.arc(gridOffsetX + center * gridSpacing,
+                gridOffsetY,
+                radius * gridSpacing,
+                0, TAU);
+    context.strokeStyle = 'black';
+    context.lineWidth = 3;
+    context.stroke();
+
+    context.beginPath();
+    context.arc(gridOffsetX + squareNumber * gridSpacing,
+                gridOffsetY,
+                0.1 * gridSpacing,
+                0, TAU);
+    if (squareNumber > 0) {
+        context.arc(gridOffsetX,
+                    gridOffsetY - Math.sqrt(squareNumber) * gridSpacing,
+                    0.1 * gridSpacing,
+                    0, TAU);
+    }
+    context.fillStyle = 'black';
+    context.fill();
+
+    if (('ontouchstart' in window) || navigator.maxTouchPoints) {
+        markPoint(context, squareNumber, 0, squareNumber);
+        if (squareNumber > 0)
+            markPoint(context, 0, Math.sqrt(squareNumber), Math.sqrt(squareNumber));
+    }
+}
+
+function withGridCoordinates(func)
+{
+    return function(event) {
+        isTouch = ('targetTouches' in event);
+
+        let canvas = document.getElementById('circle-layer');
+        let canvasRect = canvas.getBoundingClientRect();
+        let coords = isTouch ? event.targetTouches[0] : event;
+        if (isTouch && ('clientX' in event)) alert('surprise');
+        let x = (coords.clientX - canvasRect.left - gridOffsetX) / gridSpacing,
+            y = (gridOffsetY - (coords.clientY - canvasRect.top)) / gridSpacing;
+        func(x, y);
+
+        if (isTouch && isDragging) {
+            event.preventDefault();
+        }
+    };
+}
+
+function isClose(x1, y1, x2, y2)
+{
+    let dx = x1 - x2, dy = y1 - y2;
+    let distance = Math.sqrt(dx*dx + dy*dy);
+    return distance < (isTouch ? 2.0 : 0.5);
+}
+
+function markPoint(context, x, y, number)
+{
+    let baloonX = Math.trunc(gridOffsetX + x * gridSpacing) + 0.5,
+        baloonY = Math.trunc(gridOffsetY - y * gridSpacing - 10) + 0.5;
+    context.font = '12pt sans-serif'
+    let text = number.toFixed(3).toString();
+    let textWidth = context.measureText(text).width,
+        textHeight = 12;
+
+    context.beginPath();
+    context.moveTo(baloonX, baloonY);
+    context.lineTo(baloonX - 5, baloonY - 10);
+    context.lineTo(baloonX - textWidth / 2 - 10, baloonY - 10);
+    context.lineTo(baloonX - textWidth / 2 - 10, baloonY - textHeight - 30);
+    context.lineTo(baloonX + textWidth / 2 + 10, baloonY - textHeight - 30);
+    context.lineTo(baloonX + textWidth / 2 + 10, baloonY - 10);
+    context.lineTo(baloonX + 5, baloonY - 10);
+    context.lineTo(baloonX, baloonY);
+    context.lineWidth = 1;
+    context.strokeStyle = 'black';
+    context.stroke();
+    context.fillStyle = 'white';
+    context.fill();
+
+    context.beginPath();
+    context.fillStyle = 'black';
+    context.fillText(text, baloonX - textWidth / 2, baloonY - 20);
+}
+
+function onMouseMove(x, y)
+{
+    if (isTouch && !isDragging) {
+        // some mobile phones don't send "start touch" for a while,
+        // here's a hack to make reaction time faster
+        if (isClose(x, y, squareNumber, 0) ||
+                isClose(x, y, 0, Math.sqrt(squareNumber))) {
+            isDragging = true;
+        }
+    }
+
+    if (isDragging) {
+        // don't approach infinity
+        if (x > -0.5) {
+            // snap to grid points
+            var snapX = x, snapY = y;
+            let dx = x - Math.round(x),
+                dy = y - Math.round(y);
+            let snapThreshold = isTouch ? 0.2 : 0.1;
+            if (Math.sqrt(dx*dx + dy*dy) < snapThreshold) {
+                snapX = Math.round(x);
+                snapY = Math.round(y);
+            }
+            // compute circle size
+            squareNumber = snapY*snapY / (snapX + 1) + snapX;
+        }
+    }
+
+    let canvas = document.getElementById('circle-layer');
+    let context = canvas.getContext('2d');
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    drawCircle(context);
+
+    if (isTouch) {
+        return;
+    } else if (isDragging) {
+        markPoint(context, squareNumber, 0, squareNumber);
+        if (squareNumber > 0)
+            markPoint(context, 0, Math.sqrt(squareNumber), Math.sqrt(squareNumber));
+    } else if (isClose(x, y, squareNumber, 0)) {
+        markPoint(context, squareNumber, 0, squareNumber);
+    } else if ((squareNumber > 0) &&
+               isClose(x, y, 0, Math.sqrt(squareNumber))) {
+        markPoint(context, 0, Math.sqrt(squareNumber), Math.sqrt(squareNumber));
+    }
+}
+
+function onMouseDown(x, y)
+{
+    if (isClose(x, y, squareNumber, 0) ||
+            isClose(x, y, 0, Math.sqrt(squareNumber))) {
+        isDragging = true;
+        onMouseMove(x, y);
+    }
+}
+
+function endDragging() {
+    isDragging = false;
+}
+</script>
+</head>
+<body onload="init();">
+<canvas id="grid-layer"></canvas>
+<canvas id="circle-layer"></canvas>
+</body>
+</html>
